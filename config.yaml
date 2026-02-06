@@ -1,0 +1,26 @@
+samples_file: "alllist"
+index: "/path/to/bwa-mem2/index"
+picard_jar: "/opt/picard.jar"
+# Container runtime: docker or singularity
+container_runtime: "docker"
+docker_image: "bwamapping:latest"
+
+# Add directories that contain FASTQs and index files
+docker_mounts:
+  - "/cluster"
+singularity_image: "/path/to/bwamapping.sif"
+singularity_bind:
+  - "/cluster"
+  - "/data/indexes"
+
+# threading and memory
+bwa_threads: 16
+samtools_view_threads: 10
+samtools_sort_threads: 5
+samtools_sort_mem: "5G"
+samtools_merge_threads: 10
+
+# java options
+picard_xmx: "4G"
+picard_remove_duplicates: true
+slurm_partition: "all"

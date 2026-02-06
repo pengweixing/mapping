@@ -1,0 +1,9 @@
+cluster: "sbatch -p {resources.partition} -J {rule}.{wildcards} -c {threads} --mem={resources.mem_mb}M -o slurm/%x.%j.out -e slurm/%x.%j.err"
+jobs: 100
+latency-wait: 60
+rerun-incomplete: true
+use-conda: false
+printshellcmds: true
+default-resources:
+  - mem_mb=8000
+  - partition=all
