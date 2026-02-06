@@ -27,7 +27,7 @@ You can run the workflow from any directory by pointing `-s` to the `Snakefile` 
 
 Example:
 ```bash
-snakemake -s /path/to/mapping/Snakefile --configfile /path/to/mapping/config.yaml --cores 16
+snakemake -s /path/to/mapping/Snakefile --configfile /path/to/mapping/config.yaml -j 40
 ```
 
 If you want outputs to go to the current directory, keep paths in `alllist` and `index` as absolute paths (recommended for HPC).
