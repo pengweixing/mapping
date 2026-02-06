@@ -40,6 +40,7 @@ def load_samples(path):
 
 SAMPLES = load_samples(config["samples_file"])
 SAMPLE_NAMES = sorted(SAMPLES.keys())
+DUP_SUFFIX = "dedup" if config.get("picard_remove_duplicates", False) else "mardup"
 
 
 def container_prefix():
@@ -66,7 +67,7 @@ def container_prefix():
 
 rule all:
     input:
-        expand("{sample}/{sample}.mardup.sort.bam", sample=SAMPLE_NAMES),
+        expand("{sample}/{sample}." + DUP_SUFFIX + ".sort.bam", sample=SAMPLE_NAMES),
         expand("{sample}/{sample}.sort.matrix", sample=SAMPLE_NAMES),
         expand("{sample}/{sample}.picar.log", sample=SAMPLE_NAMES),
 
@@ -89,7 +90,7 @@ rule bwa_mem:
         container=container_prefix(),
     shell:
         r"""
-        {params.container} "bwa-mem2 mem -t {threads} -R '@RG\tID:{wildcards.unit}\tSM:{wildcards.sample}\tLB:library1\tPL:illumina' {params.index} {input.r1} {input.r2} \
+        {params.container} "mkdir -p {wildcards.sample} && bwa-mem2 mem -t {threads} -R '@RG\tID:{wildcards.unit}\tSM:{wildcards.sample}\tLB:library1\tPL:illumina' {params.index} {input.r1} {input.r2} \
           | samtools view -@ {params.view_threads} - -b \
           | samtools sort -m {params.sort_mem} -@ {params.sort_threads} - -o {output.bam}"
         """
@@ -122,7 +123,7 @@ rule mark_duplicates:
     input:
         bam="{sample}/{sample}.merge.sort.bam",
     output:
-        bam="{sample}/{sample}.mardup.sort.bam",
+        bam=lambda wc: f"{wc.sample}/{wc.sample}.{DUP_SUFFIX}.sort.bam",
         metrics="{sample}/{sample}.sort.matrix",
         log="{sample}/{sample}.picar.log",
     params:

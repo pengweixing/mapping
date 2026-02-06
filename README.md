@@ -9,10 +9,28 @@ Example:
 snakemake --profile slurm --configfile config.yaml --cores 16
 ```
 
+If you want to limit total jobs (but not total cores), use `--jobs` (or set `jobs:` in `slurm/config.yaml`):
+```bash
+snakemake --profile slurm --configfile config.yaml --cores 999 --jobs 50
+```
+This caps the number of concurrent Slurm jobs while allowing high total cores.
+
 Queues/partitions:
 - set `slurm_partition` in `config.yaml` to `all` or `himem`
+ - you can also pass multiple partitions if your Slurm allows it, e.g. `all,himem`
 
 Outputs from Slurm will be written to `slurm/*.out` and `slurm/*.err`.
+
+## Running From Another Directory
+
+You can run the workflow from any directory by pointing `-s` to the `Snakefile` and `--configfile` to the config you want to use.
+
+Example:
+```bash
+snakemake -s /path/to/mapping/Snakefile --configfile /path/to/mapping/config.yaml --cores 16
+```
+
+If you want outputs to go to the current directory, keep paths in `alllist` and `index` as absolute paths (recommended for HPC).
 
 ## Containers (Docker or Singularity)
 

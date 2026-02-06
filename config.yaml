@@ -23,4 +23,4 @@ samtools_merge_threads: 10
 # java options
 picard_xmx: "4G"
 picard_remove_duplicates: true
-slurm_partition: "all"
+slurm_partition: "all,himem"
