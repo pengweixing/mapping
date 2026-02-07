@@ -14,11 +14,16 @@ singularity_bind:
   - "/data/indexes"
 
 # threading and memory
-bwa_threads: 16
+bwa_threads: 15
 samtools_view_threads: 10
 samtools_sort_threads: 5
-samtools_sort_mem: "5G"
+samtools_sort_mem: "2G"
+sort_mem_mb: 10000
 samtools_merge_threads: 10
+
+bwa_mem_mb: 20000
+merge_mem_mb: 8000
+markdup_mem_mb: 8000
 
 # java options
 picard_xmx: "4G"

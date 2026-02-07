@@ -21,6 +21,27 @@ Queues/partitions:
 
 Outputs from Slurm will be written to `slurm/*.out` and `slurm/*.err`.
 
+### Cluster Config Style (`--cluster-config`)
+
+If you prefer the same style as your Griffin workflow, use:
+```bash
+mkdir -p logs/cluster
+
+snakemake \
+  -s /cluster/projects/lupiengroup/People/Pengwei/pipeline/mapping/Snakefile \
+  --configfile /cluster/projects/lupiengroup/People/Pengwei/cfDNA/01.mapping_Snyder/config.yaml \
+  --latency-wait 60 \
+  --keep-going \
+  --cluster-config /cluster/projects/lupiengroup/People/Pengwei/pipeline/mapping/slurm/cluster_slurm.yaml \
+  --cluster "sbatch -p {cluster.partition} -A cbmp -t {cluster.time} --mem={cluster.mem} -c {cluster.ncpus} -n {cluster.ntasks} -o {cluster.output} -J {cluster.JobName}" \
+  -j 50 \
+  --rerun-incomplete
+```
+
+Notes:
+- `cluster_slurm.yaml` in this repo already matches mapping wildcards (`sample`, `unit`).
+- `bwa_mem` and `sort_bam` are submitted per sample/unit; `merge_bams` and `mark_duplicates` are per sample.
+
 ## Running From Another Directory
 
 You can run the workflow from any directory by pointing `-s` to the `Snakefile` and `--configfile` to the config you want to use.

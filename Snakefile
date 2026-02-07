@@ -16,9 +16,10 @@ def load_samples(path):
             if not line or line.startswith("#"):
                 continue
             parts = line.split()
-            if len(parts) < 3:
-                raise ValueError(f"Expected 3 columns in samples file, got: {line}")
-            sample, r1, r2 = parts[0], parts[1], parts[2]
+            if len(parts) not in (2, 3):
+                raise ValueError(f"Expected 2 or 3 columns in samples file, got: {line}")
+            sample, r1 = parts[0], parts[1]
+            r2 = parts[2] if len(parts) == 3 else None
             base = os.path.basename(r1)
             base = base.replace(".fastq.gz", "").replace(".fq.gz", "")
             base = base.replace(".fastq", "").replace(".fq", "")
@@ -64,47 +65,72 @@ def container_prefix():
         return f"singularity exec --pwd /work {binds_str} {image} bash -lc"
     raise ValueError(f"Unsupported container_runtime: {runtime}")
 
-
 rule all:
     input:
         expand("{sample}/{sample}." + DUP_SUFFIX + ".sort.bam", sample=SAMPLE_NAMES),
-        expand("{sample}/{sample}.sort.matrix", sample=SAMPLE_NAMES),
-        expand("{sample}/{sample}.picar.log", sample=SAMPLE_NAMES),
 
 
 rule bwa_mem:
     input:
         r1=lambda wc: next(i["r1"] for i in SAMPLES[wc.sample] if i["unit"] == wc.unit),
-        r2=lambda wc: next(i["r2"] for i in SAMPLES[wc.sample] if i["unit"] == wc.unit),
     output:
-        bam=temp("{sample}/{unit}.sort.bam"),
+        bam=temp("{sample}/units/{unit}.bam"),
+    log:
+        "{sample}/{unit}.bwa.log",
     threads: config["bwa_threads"]
     resources:
-        mem_mb=20000,
+        mem_mb=config.get("bwa_mem_mb", 20000),
         partition=config.get("slurm_partition", "all"),
     params:
         index=config["index"],
         view_threads=config["samtools_view_threads"],
-        sort_threads=config["samtools_sort_threads"],
+        reads=lambda wc: " ".join(
+            p
+            for p in [
+                next(i["r1"] for i in SAMPLES[wc.sample] if i["unit"] == wc.unit),
+                next(i["r2"] for i in SAMPLES[wc.sample] if i["unit"] == wc.unit),
+            ]
+            if p
+        ),
+        container=container_prefix(),
+    shell:
+        r"""
+        {params.container} "mkdir -p {wildcards.sample}/units && bwa-mem2 mem -t {threads} -R '@RG\tID:{wildcards.unit}\tSM:{wildcards.sample}\tLB:library1\tPL:illumina' {params.index} {params.reads} \
+          | samtools view -@ {params.view_threads} -b -o {output.bam}" > {log} 2>&1
+        """
+
+
+rule sort_bam:
+    input:
+        bam="{sample}/units/{unit}.bam",
+    output:
+        bam=temp("{sample}/units/{unit}.sort.bam"),
+    log:
+        "{sample}/{unit}.sort.log",
+    threads: config["samtools_sort_threads"]
+    resources:
+        mem_mb=config.get("sort_mem_mb", 8000),
+        partition=config.get("slurm_partition", "all"),
+    params:
         sort_mem=config["samtools_sort_mem"],
         container=container_prefix(),
     shell:
         r"""
-        {params.container} "mkdir -p {wildcards.sample} && bwa-mem2 mem -t {threads} -R '@RG\tID:{wildcards.unit}\tSM:{wildcards.sample}\tLB:library1\tPL:illumina' {params.index} {input.r1} {input.r2} \
-          | samtools view -@ {params.view_threads} - -b \
-          | samtools sort -m {params.sort_mem} -@ {params.sort_threads} - -o {output.bam}"
+        {params.container} "samtools sort -m {params.sort_mem} -@ {threads} -o {output.bam} {input.bam}" > {log} 2>&1
         """
 
 
 rule merge_bams:
     input:
-        bams=lambda wc: [f"{wc.sample}/{i['unit']}.sort.bam" for i in SAMPLES[wc.sample]],
+        bams=lambda wc: [f"{wc.sample}/units/{i['unit']}.sort.bam" for i in SAMPLES[wc.sample]],
     output:
-        bam="{sample}/{sample}.merge.sort.bam",
-        lst="{sample}/bam.list",
+        bam=temp("{sample}/{sample}.merge.sort.bam"),
+        lst=temp("{sample}/bam.list"),
+    log:
+        "{sample}/{sample}.merge.log",
     threads: config["samtools_merge_threads"]
     resources:
-        mem_mb=8000,
+        mem_mb=config.get("merge_mem_mb", 8000),
         partition=config.get("slurm_partition", "all"),
     run:
         os.makedirs(wildcards.sample, exist_ok=True)
@@ -115,24 +141,26 @@ rule merge_bams:
             if os.path.exists(output.bam):
                 os.remove(output.bam)
             os.symlink(os.path.abspath(input.bams[0]), output.bam)
+            with open(log[0], "w") as fh:
+                fh.write("Only one BAM; created symlink to merge output.\n")
         else:
-            shell(f"{container_prefix()} \"samtools merge -@ {threads} -b {output.lst} {output.bam}\"")
+            shell(f"{container_prefix()} \"samtools merge -@ {threads} -b {output.lst} {output.bam}\" > {log} 2>&1")
 
 
 rule mark_duplicates:
     input:
         bam="{sample}/{sample}.merge.sort.bam",
     output:
-        bam=lambda wc: f"{wc.sample}/{wc.sample}.{DUP_SUFFIX}.sort.bam",
-        metrics="{sample}/{sample}.sort.matrix",
-        log="{sample}/{sample}.picar.log",
+        bam="{sample}/{sample}." + DUP_SUFFIX + ".sort.bam",
+        metrics=temp("{sample}/{sample}.sort.matrix"),
+        log=temp("{sample}/{sample}.picar.log"),
     params:
         picard=config["picard_jar"],
         xmx=config["picard_xmx"],
         rmdup=config.get("picard_remove_duplicates", False),
         container=container_prefix(),
     resources:
-        mem_mb=8000,
+        mem_mb=config.get("markdup_mem_mb", 8000),
         partition=config.get("slurm_partition", "all"),
     shell:
         r"""

@@ -1,0 +1,40 @@
+__default__:
+    partition: all,himem,veryhimem
+    time: "2-24:0:0"
+    mem: 8G
+    ncpus: 1
+    ntasks: 1
+    output: logs/cluster/{rule}.%A.out
+    JobName: "{rule}"
+
+bwa_mem:
+    time: "1-24:0:0"
+    mem: 20G
+    ncpus: 15
+    ntasks: 1
+    output: logs/cluster/{rule}.{wildcards.sample}.{wildcards.unit}.%A.out
+    JobName: "{rule}.{wildcards.sample}.{wildcards.unit}"
+
+sort_bam:
+    time: "1-24:0:0"
+    mem: 10G
+    ncpus: 5
+    ntasks: 1
+    output: logs/cluster/{rule}.{wildcards.sample}.{wildcards.unit}.%A.out
+    JobName: "{rule}.{wildcards.sample}.{wildcards.unit}"
+
+merge_bams:
+    time: "1-24:0:0"
+    mem: 8G
+    ncpus: 10
+    ntasks: 1
+    output: logs/cluster/{rule}.{wildcards.sample}.%A.out
+    JobName: "{rule}.{wildcards.sample}"
+
+mark_duplicates:
+    time: "1-24:0:0"
+    mem: 8G
+    ncpus: 1
+    ntasks: 1
+    output: logs/cluster/{rule}.{wildcards.sample}.%A.out
+    JobName: "{rule}.{wildcards.sample}"
